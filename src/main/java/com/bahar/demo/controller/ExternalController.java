@@ -33,7 +33,19 @@ public class ExternalController {
         return "✅ External service success!";
     }
 
+    /**
+     * callExternal()
+     * این متد خودش یه شبیه‌سازی خطا می‌کنه (۶۰٪ احتمال شکست) و روی اون CircuitBreaker گذاشتی.
+     * اگر خطا بیفته ⇒ میره سراغ متد fallbackResponse(Exception ex).
+     * @param ex
+     * @return
+     */
+
     public String fallbackResponse(Exception ex) {
         return "⚠️ Fallback: service unavailable (“" + ex.getMessage() + "”)";
     }
+    /**
+     * fallbackResponse(Exception ex)
+     * متد fallback باید هم‌امضا باشه با متدی که CircuitBreaker روش هست، فقط یک پارامتر اضافی برای Exception می‌گیره.
+     */
 }

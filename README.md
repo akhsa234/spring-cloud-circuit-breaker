@@ -153,3 +153,8 @@ sequenceDiagram
 | هدف         | جلوگیری از شکست کل سیستم و برگرداندن پاسخ جایگزین | اجرای کدی که بعداً لازمه (مثلاً Async)   |
 | کاربرد اصلی | Resilience (پایداری در برابر خطا)                 | Event-driven و Async Programming         |
 | مثال روزمره | وقتی برق میره، ژنراتور روشن میشه (Plan B)         | وقتی غذا آماده شد، رستوران بهت زنگ میزنه |
+
+
+curl http://localhost:8080/api/call
+curl http://localhost:8080/api/test
+له
