@@ -1,0 +1,46 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+# Editor-based HTTP Client requests
+/httpRequests/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
+# Zeppelin ignored files
+/ZeppelinRemoteNotebooks/
+# 1. ساخت فایل .gitignore
+@"
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Maven
+target/
+
+# Logs
+*.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Java
+*.class
+
+# VS Code
+.vscode/
+
+# Backup / temporary files
+*.swp
+*.bak
+*.tmp
+"@ | Out-File -Encoding utf8 .gitignore
+
+# 2. حذف فایل‌هایی که قبلاً اشتباهی stage شده بودن (از Git ولی نه از دیسک)
+git rm -r --cached .idea target
+
+# 3. اضافه کردن بقیه فایل‌ها به Git (فقط فایل‌های غیر ignore شده)
+git add .
+
+# 4. Commit تغییرات
+git commit -m "اضافه کردن .gitignore و حذف فایل‌های غیرضروری از Git"
