@@ -4,8 +4,32 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+
+/**
+ * پیاده‌سازی ExternalService
+ * -------------------------
+ * شامل:
+ *  - یک متد SYNC ساده (call)
+ *  - یک متد SYNC با CircuitBreaker/Retry (callExternalApiSync + fallbackMethod)
+ *  - دو مدل Callback: Consumer و CompletableFuture
+ *  - هندلرهای onSuccess/onError برای chain در CompletableFuture
+ */
 @Service
 public class ExternalServiceImpl implements ExternalService {
+
+    /** شمارنده‌ی فراخوانی‌ها برای شبیه‌سازی الگوی شکست/موفقیت در حالت sync */
+    private int counter = 0;
+
+    /**
+     * متد تست ساده (SYNC)
+     * -------------------------
+     * با احتمال ۶۰٪ استثناء پرتاب می‌کند تا سناریوی شکست را شبیه‌سازی کند.
+     *
+     * @return پیام موفقیت
+     * @throws RuntimeException در صورت شبیه‌سازی خطا
+     */
     @Override
     public String call() {
         if (Math.random() < 0.6) {
@@ -14,11 +38,28 @@ public class ExternalServiceImpl implements ExternalService {
         return "✅ External service success!";
     }
 
-    private int counter = 0;
-
-    @CircuitBreaker(name = "myService", fallbackMethod = "fallbackMethod")
-    @Retry(name = "myService")
-    public String callExternalApi() {
+    /**
+     * متد SYNC با Resilience4j (CircuitBreaker + Retry)
+     * -------------------------
+     * منطق شبیه‌سازی:
+     *  - هر بار فراخوانی، counter++ می‌شود.
+     *  - اگر counter زوج باشد: موفقیت
+     *  - اگر فرد باشد: استثناء (شکست)
+     *
+     * رفتار Resilience4j:
+     *  - @Retry(name="externalService"): در صورت شکست، چند بار تلاش مجدد می‌کند (طبق yml).
+     *  - @CircuitBreaker(name="externalService", fallbackMethod="fallbackMethod"):
+     *      اگر نرخ شکست زیاد شود یا مدار باز باشد، به جای متد اصلی، fallbackMethod صدا زده می‌شود.
+     *
+     * نکته: امضای fallback باید با امضای متد همخوان باشد (نوع خروجی یکسان + پارامتر Exception در انتها).
+     *
+     * @return پیام موفقیت در تلاش‌های زوج
+     * @throws RuntimeException در تلاش‌های فرد (پیش از اعمال مکانیزم‌های resilience)
+     */
+    @Override
+    @CircuitBreaker(name = "externalService", fallbackMethod = "fallbackMethod")
+    @Retry(name = "externalService")
+    public String callExternalApiSync() {
         counter++;
         if (counter % 2 == 0) {
             return "✅ Success on attempt " + counter;
@@ -27,86 +68,89 @@ public class ExternalServiceImpl implements ExternalService {
         }
     }
 
-    // fallback
+    /**
+     * پاسخ جایگزین (Fallback) برای callExternalApiSync
+     * -------------------------
+     * توسط Resilience4j هنگام شکست نهایی یا مدار باز فراخوانی می‌شود.
+     *
+     * @param e استثناء اصلی رخ‌داده
+     * @return پیام fallback کاربرپسند
+     */
+    @Override
     public String fallbackMethod(Exception e) {
         return "⚠️ Fallback response because: " + e.getMessage();
     }
-}
 
-/**
- *
- * این کلاس یک سرویس شبیه‌سازی‌شده است که هم متدهای عادی دارد، هم متدی که با Resilience4j (CircuitBreaker و Retry) محافظت شده.
- *
- * یک شبیه‌ساز ساده برای سرویس خارجی.
- *
- * با احتمال ۶۰٪ خطا می‌دهد (throw RuntimeException) و با احتمال ۴۰٪ پیام موفقیت برمی‌گرداند.
- *
- * این بیشتر برای تست سناریوی خطا در متدهای عادی است.
- *
- * شمارنده‌ای است که تعداد دفعات فراخوانی متد callExternalApi() را نگه می‌دارد.
- *
- * برای اینکه الگوی خطا/موفقیت قابل پیش‌بینی شود (یک بار شکست، یک بار موفقیت).
- *
- * callExternalApi()
- *
- * هر بار صدا زده بشه counter زیاد میشه.
- *
- * اگه شمارنده زوج باشه → جواب Success برمی‌گردونه.
- *
- * اگه فرد باشه → Exception می‌ندازه.
- *
- * چون روش @CircuitBreaker و @Retry هست:
- *
- * اگه خطا باشه → Resilience4j سعی می‌کنه دوباره retry کنه.
- *
- * اگه باز هم نشد → میره سراغ متد fallback.
- *
- *
- * فراخوانی سرویس خارجی است.
- *
- * ویژگی‌ها:
- *
- * @CircuitBreaker: اگر خطا زیاد رخ بدهد، مدار قطع می‌شود و دیگر به سرویس اصلی زنگ نمی‌زند؛ مستقیم می‌رود سراغ fallback.
- *
- * @Retry: اگر فراخوانی شکست بخورد، چند بار پشت سر هم دوباره تلاش می‌کند.
- *
- * منطق داخلی:
- *
- * هر بار که صدا زده می‌شود، counter یکی زیاد می‌شود.
- *
- * اگر counter زوج باشد → موفقیت برمی‌گرداند.
- *
- * اگر counter فرد باشد → استثنا پرتاب می‌کند (شکست).
- *
- * یعنی:
- *
- * بار ۱ → شکست
- *
- * بار ۲ → موفقیت
- *
- * بار ۳ → شکست
- *
- * بار ۴ → موفقیت
- * و به همین ترتیب.
- *
- * fallbackMethod(Exception e)
- *
- * وقتی متد اصلی شکست بخوره، این متد اجرا میشه.
- *
- * خروجی: یک پیام جایگزین با توضیح علت خطا.
- *
- * متد جایگزین است که وقتی CircuitBreaker یا Retry نتوانند سرویس را موفق کنند، فراخوانی می‌شود.
- *
- * پیام برمی‌گرداند که چرا سرویس به fallback رفته است (متن خطای اصلی را هم شامل می‌کند)
- *
- * .
- *
- *
- * خلاصه رفتار
- *
- * call() → یه شبیه‌ساز تصادفی موفقیت/شکست (۶۰٪ شکست).
- *
- * callExternalApi() → یک بار خطا، بار بعدی موفقیت (با CircuitBreaker و Retry محافظت شده).
- *
- * fallbackMethod() → وقتی همه‌ی تلاش‌ها شکست بخورد، پیام جایگزین می‌دهد.
- */
+    /**
+     * مدل Callback ساده با Consumer
+     * -------------------------
+     * کار را در یک Thread جدا اجرا می‌کند (شبیه‌سازی async).
+     * بعد از ۵۰۰ms:
+     *  - در سناریوی موفقیت → callback.accept("✅ ...")
+     *  - در سناریوی InterruptedException → callback.accept("❌ ...")
+     *
+     * توجه: این روش purely callback-style است و Future برنمی‌گرداند.
+     *
+     * @param callback تابعی که نتیجه/پیام را دریافت می‌کند
+     */
+    @Override
+    public void processWithCallback(Consumer<String> callback) {
+        new Thread(() -> {
+            try {
+                Thread.sleep(500); // شبیه‌سازی تأخیر
+                callback.accept("✅ کار با موفقیت انجام شد!");
+            } catch (InterruptedException e) {
+                callback.accept("❌ خطا در پردازش");
+                Thread.currentThread().interrupt(); // رعایت best practice
+            }
+        }).start();
+    }
+
+    /**
+     * مدل async با CompletableFuture
+     * -------------------------
+     * عملیات را به‌صورت غیرهمزمان اجرا می‌کند:
+     *  - ۵۰٪ احتمال پرتاب استثناء (شکست)
+     *  - ۵۰٪ احتمال موفقیت
+     *
+     * مدیریت نتیجه:
+     *  - در Controller با thenApply(onSuccess) و exceptionally(onError) هندل می‌شود.
+     *
+     * @return CompletableFuture از رشته‌ی نتیجه (موفقیت) یا استثناء (شکست)
+     */
+    @Override
+    public CompletableFuture<String> asyncProcess() {
+        return CompletableFuture.supplyAsync(() -> {
+            if (Math.random() < 0.5) {
+                throw new RuntimeException("❌ شکست خورد!");
+            }
+            return "✅ موفق شد!";
+        });
+    }
+
+    /**
+     * هندلر موفقیت برای chain
+     * -------------------------
+     * در thenApply(...) استفاده می‌شود.
+     *
+     * @param result خروجی خام عملیات async
+     * @return پیام کاربرپسندِ موفقیت
+     */
+    @Override
+    public String onSuccess(String result) {
+        return "🎉 SUCCESS callback in Service: " + result;
+    }
+
+    /**
+     * هندلر خطا برای chain
+     * -------------------------
+     * در exceptionally(...) استفاده می‌شود.
+     *
+     * @param ex استثناء رخ‌داده
+     * @return پیام کاربرپسندِ خطا
+     */
+    @Override
+    public String onError(Throwable ex) {
+        return "💥 ERROR callback in Service: " + ex.getMessage();
+    }
+}

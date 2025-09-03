@@ -15,7 +15,7 @@
     <groupId>com.bahar</groupId>
     <artifactId>Spring-Cloud-CircuitBreaker</artifactId>
     <version>1.0-SNAPSHOT</version>
-    <name>spring-cloud-circuit-breaker</name>
+    <name>spring-cloud-circuit-breaker-callback</name>
     <description>Demo project for Spring Boot</description>
 
     <properties>

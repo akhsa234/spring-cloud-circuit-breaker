@@ -1,13 +1,24 @@
 resilience4j:
   circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        eventConsumerBufferSize: 10
     instances:
       externalService:
-        registerHealthIndicator: true
+        baseConfig: default
         slidingWindowSize: 5
         minimumNumberOfCalls: 3
         failureRateThreshold: 60
         waitDurationInOpenState: 5s
         permittedNumberOfCallsInHalfOpenState: 2
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+  retry:
+    instances:
+      externalService:
+        maxAttempts: 3
+        waitDuration: 500ms
 
 management:
   endpoints:
@@ -17,3 +28,7 @@ management:
   health:
     circuitbreakers:
       enabled: true
+
+#
+#دقت کن: بلاک circuitbreaker.configs باید زیر resilience4j باشه، نه زیر management.
+#اگر از configs.default استفاده می‌کنی، در instances.externalService باید baseConfig: default بزنی تا اعمال بشه
