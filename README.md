@@ -156,5 +156,14 @@ sequenceDiagram
 
 
 curl http://localhost:8080/api/call
+
+
+⚠️ Fallback: service unavailable (“CircuitBreaker 'externalService' is OPEN and does not permit further calls”)
+⚠️ Fallback: service unavailable (“Simulated failure in external service”)
+✅ External service success!
+
 curl http://localhost:8080/api/test
-له
+
+⚠️ Fallback response because: ❌ External API failed on attempt 1
+✅ Success on attempt 2
+⚠️ Fallback response because: ❌ External API failed on attempt 3
